@@ -28,22 +28,29 @@ open class MessageCollectionViewCell: UICollectionViewCell {
 
     // MARK: - Properties
 
-    open var messageContainerView: UIView = {
-        let messageContainerView = UIView()
-        messageContainerView.layer.cornerRadius = 12.0
-        messageContainerView.layer.masksToBounds = true
-        return messageContainerView
-    }()
+    open var messageContainerView: MessageContainerView = MessageContainerView()
 
     open var avatarView: AvatarView = AvatarView()
 
-    open var cellTopLabel: MessageLabel = MessageLabel()
+    open var cellTopLabel: MessageLabel = {
+        let topLabel = MessageLabel()
+        topLabel.enabledDetectors = []
+        return topLabel
+    }()
 
     open var messageLabel: MessageLabel = MessageLabel()
 
-    open var cellBottomLabel: MessageLabel = MessageLabel()
+    open var cellBottomLabel: MessageLabel = {
+        let bottomLabel = MessageLabel()
+        bottomLabel.enabledDetectors = []
+        return bottomLabel
+    }()
 
-    open weak var delegate: MessageCellDelegate?
+    open weak var delegate: MessageCellDelegate? {
+        didSet {
+            messageLabel.delegate = delegate
+        }
+    }
 
     // MARK: - Initializer
 
@@ -75,86 +82,27 @@ open class MessageCollectionViewCell: UICollectionViewCell {
 
         guard let attributes = layoutAttributes as? MessagesCollectionViewLayoutAttributes else { return }
 
-        cellTopLabel.frame = cellTopLabelFrame(for: attributes)
-        cellTopLabel.textInsets = attributes.cellTopLabelInsets
+        avatarView.frame = attributes.avatarFrame
 
-        messageContainerView.frame = messageContainerFrame(for: attributes)
-        messageLabel.frame = CGRect(origin: .zero, size: attributes.messageContainerSize)
+        messageContainerView.frame = attributes.messageContainerFrame
+        messageLabel.frame = CGRect(origin: .zero, size: attributes.messageContainerFrame.size)
         messageLabel.textInsets = attributes.messageLabelInsets
 
-        avatarView.frame = avatarViewFrame(for: attributes)
+        cellTopLabel.frame = attributes.cellTopLabelFrame
+        cellTopLabel.textInsets = attributes.cellTopLabelInsets
 
-        cellBottomLabel.frame = cellBottomLabelFrame(for: attributes)
+        cellBottomLabel.frame = attributes.cellBottomLabelFrame
         cellBottomLabel.textInsets = attributes.cellBottomLabelInsets
 
-        switch attributes.direction {
-        case .incoming:
-            cellTopLabel.textAlignment = .left
-            cellBottomLabel.textAlignment = .right
-        case .outgoing:
-            cellTopLabel.textAlignment = .right
-            cellBottomLabel.textAlignment = .left
-        }
-
     }
 
-    private func cellTopLabelFrame(for attributes: MessagesCollectionViewLayoutAttributes) -> CGRect {
-
-        var origin: CGPoint = .zero
-
-        if !attributes.topLabelExtendsPastAvatar {
-            origin = CGPoint(x: attributes.avatarSize.width + attributes.avatarMessagePadding, y: 0)
-        }
-
-        return CGRect(origin: origin, size: attributes.cellTopLabelSize)
-    }
-
-    private func cellBottomLabelFrame(for attributes: MessagesCollectionViewLayoutAttributes) -> CGRect {
-
-        var origin: CGPoint = CGPoint(x: 0, y: contentView.frame.height - attributes.cellBottomLabelSize.height)
-
-        if !attributes.bottomLabelExtendsPastAvatar {
-            origin.x = attributes.avatarSize.width + attributes.avatarMessagePadding
-        }
-
-        return CGRect(origin: origin, size: attributes.cellBottomLabelSize)
-    }
-
-    private func messageContainerFrame(for attributes: MessagesCollectionViewLayoutAttributes) -> CGRect {
-
-        var origin: CGPoint = .zero
-
-        let yPosition = attributes.cellTopLabelSize.height
-
-        switch attributes.direction {
-        case .outgoing:
-            let xPosition = contentView.frame.width - attributes.avatarSize.width - attributes.avatarMessagePadding - attributes.messageContainerSize.width
-            origin = CGPoint(x: xPosition, y: yPosition)
-        case .incoming:
-            let xPosition = attributes.avatarSize.width + attributes.avatarMessagePadding
-            origin = CGPoint(x: xPosition, y: yPosition)
-        }
-
-        return CGRect(origin: origin, size: attributes.messageContainerSize)
-
-    }
-
-    private func avatarViewFrame(for attributes: MessagesCollectionViewLayoutAttributes) -> CGRect {
-
-        var origin: CGPoint = .zero
-
-        let yPosition = contentView.frame.height - attributes.avatarSize.height - attributes.avatarBottomPadding - attributes.cellBottomLabelSize.height
-
-        switch attributes.direction {
-        case .outgoing:
-            let xPosition = contentView.frame.width - attributes.avatarSize.width
-            origin = CGPoint(x: xPosition, y: yPosition)
-        case .incoming:
-            origin = CGPoint(x: 0, y: yPosition)
-        }
-
-        return CGRect(origin: origin, size: attributes.avatarSize)
-
+    override open func prepareForReuse() {
+        messageLabel.text = nil
+        messageLabel.attributedText = nil
+        cellTopLabel.text = nil
+        cellTopLabel.attributedText = nil
+        cellBottomLabel.text = nil
+        cellBottomLabel.attributedText = nil
     }
 
     public func configure(with message: MessageType) {
@@ -176,6 +124,15 @@ open class MessageCollectionViewCell: UICollectionViewCell {
 
         let messageTapGesture = UITapGestureRecognizer(target: self, action: #selector(didTapMessage))
         messageContainerView.addGestureRecognizer(messageTapGesture)
+        messageTapGesture.delegate = messageLabel
+
+        let topLabelTapGesture = UITapGestureRecognizer(target: self, action: #selector(didTapTopLabel))
+        cellTopLabel.addGestureRecognizer(topLabelTapGesture)
+        cellTopLabel.isUserInteractionEnabled = true
+
+        let bottomlabelTapGesture = UITapGestureRecognizer(target: self, action: #selector(didTapBottomLabel))
+        cellBottomLabel.addGestureRecognizer(bottomlabelTapGesture)
+        cellBottomLabel.isUserInteractionEnabled = true
 
     }
 
@@ -188,4 +145,13 @@ open class MessageCollectionViewCell: UICollectionViewCell {
     func didTapMessage() {
         delegate?.didTapMessage(in: self)
     }
+
+    func didTapTopLabel() {
+        delegate?.didTapTopLabel(in: self)
+    }
+
+    func didTapBottomLabel() {
+        delegate?.didTapBottomLabel(in: self)
+    }
+
 }
